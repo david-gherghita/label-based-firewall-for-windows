@@ -154,10 +154,6 @@ TLInspectIPPacketClassify(
     classifyOut->rights &= ~FWPS_RIGHT_ACTION_WRITE;
     classifyOut->flags |= FWPS_CLASSIFY_OUT_FLAG_ABSORB;
 
-    //for (NET_BUFFER *NB = NET_BUFFER_LIST_FIRST_NB(clonedNetBufferList); NB != NULL; NB = NET_BUFFER_NEXT_NB(NB)) {
-    //    DbgPrint("FIREWALL: LEN: %d", NET_BUFFER_DATA_LENGTH(NB));
-    //}
-
     // Get PID
     UINT64 pid = (UINT64)PsGetCurrentProcessId();
     DbgPrint("FIREWALL: PID: %llu", pid);
@@ -207,6 +203,7 @@ TLInspectIPPacketClassify(
     }
 
     // Copy header
+
     BYTE* oldPacket = NdisGetDataBuffer(
         netBuffer,
         oldSize,
