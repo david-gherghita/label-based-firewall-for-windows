@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
         SOCKADDR_IN destAddr = {};
         destAddr.sin_family = AF_INET;
         destAddr.sin_port = htons(1337); // Destination port number.
-        inet_pton(AF_INET, "192.168.0.101", &(destAddr.sin_addr)); // Destination IP address.
+        inet_pton(AF_INET, "127.0.0.1", &(destAddr.sin_addr)); // Destination IP address.
 
         // Send a UDP datagram.
         const char* message = "Hello, world!";
