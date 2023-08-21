@@ -204,6 +204,7 @@ TLInspectIPPacketClassify(
 
     // Copy header
 
+    NET_BUFFER* netBuffer = NET_BUFFER_LIST_FIRST_NB((NET_BUFFER_LIST*)layerData);
     BYTE* oldPacket = NdisGetDataBuffer(
         netBuffer,
         oldSize,
@@ -211,6 +212,7 @@ TLInspectIPPacketClassify(
         1,
         0
     );
+
     if (oldPacket == NULL) {
         DbgPrint("FIREWALL: pFrame is NULL");
         return;
