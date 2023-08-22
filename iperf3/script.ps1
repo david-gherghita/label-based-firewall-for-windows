@@ -11,6 +11,6 @@ for ($mtu = 70; $mtu -le 1500; $mtu += 10) {
         netsh interface ipv4 set subinterface "$interfaceAlias" mtu=$mtu store=persistent
 
         $iperfOutput = & $iperfPath -c $iperfServer -p $iperfPort -f m -i 10
-        $iperfOutput | Out-File -Append -FilePath $outputFile
+        $iperfOutput | Out-File -Append -FilePath $outputFile -Encoding UTF8
     }
 }
