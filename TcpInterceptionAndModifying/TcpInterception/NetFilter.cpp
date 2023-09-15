@@ -27,6 +27,7 @@ DEFINE_GUID(INTERCEPTION_OUTBOUND_TRANSPORT_V4_CALLOUT, 0x47896a45, 0x35fb, 0x4e
 #define NET_BUFFER_LIST_STORAGE_TAG      'gTlB'
 #define NET_BUFFER_LIST_PTR_TAG          'gTtP'
 #define SEND_PARAMETERS_TAG              'gTpS'
+#define TCP_HEADER_STORAGE_TAG           'rotS'
 #define HASH_TAG                         'hsaH'
 
 static UINT16
@@ -328,6 +329,11 @@ Cleanup:
     {
         ExFreePoolWithTag(pbHash, HASH_TAG);
     }
+
+    if (pbInputData)
+    {
+        ExFreePoolWithTag(pbInputData, HASH_TAG);
+    }
 };
 
 static NTSTATUS InsertUpdatedTcpPacket(NetworkBufferListStorage& storage,
@@ -416,17 +422,12 @@ static void ProcessTransportData(const FWPS_INCOMING_VALUES0* inFixedValues,
     // DbgPrint("FIREWALL: PID: %llu", pid);
 
     NET_BUFFER_LIST* netBufferList = static_cast<NET_BUFFER_LIST*>(layerData);
-    // TCP header always stored in the first NET_BUFFER_LIST
-    //ASSERT(NET_BUFFER_LIST_NEXT_NBL(netBufferList) == nullptr);
-
-    // For the SYN packet NET_BUFFER_LIST will contain only one net buffer
-    //NET_BUFFER* netBuffer = NET_BUFFER_LIST_FIRST_NB(netBufferList);
 
     int counter = -1;
     for (NET_BUFFER* netBuffer = NET_BUFFER_LIST_FIRST_NB(netBufferList); netBuffer; netBuffer = NET_BUFFER_NEXT_NB(netBuffer))
     {   
         counter += 1;
-        // Need to block and absorb current packet to inject new packet with options instead of it
+        // Need to block and absorb current packet to inject new packet with options
         classifyOut->actionType = FWP_ACTION_BLOCK;
         SetFlag(classifyOut->flags, FWPS_CLASSIFY_OUT_FLAG_ABSORB);
 
@@ -440,7 +441,7 @@ static void ProcessTransportData(const FWPS_INCOMING_VALUES0* inFixedValues,
         static const int extraOptionSize = 40;
         // IF TCP
         if (inFixedValues->incomingValue[FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_PROTOCOL].value.uint8 == 6) {
-            PVOID origTcpHeaderStorage = ExAllocatePoolZero(NonPagedPoolNx, NET_BUFFER_DATA_LENGTH(netBuffer), 'rotS');
+            PVOID origTcpHeaderStorage = ExAllocatePoolZero(NonPagedPoolNx, NET_BUFFER_DATA_LENGTH(netBuffer), TCP_HEADER_STORAGE_TAG);
             BYTE* origTcpHeader = (BYTE*)NdisGetDataBuffer(netBuffer, NET_BUFFER_DATA_LENGTH(netBuffer), origTcpHeaderStorage, 1, 0);
             BYTE origTcpHeaderSize = ((((BYTE*)origTcpHeader)[12] & 0b11110000) >> 4) * 4;
             ULONG dataSize = NET_BUFFER_DATA_LENGTH(netBuffer) - origTcpHeaderSize;
@@ -454,7 +455,6 @@ static void ProcessTransportData(const FWPS_INCOMING_VALUES0* inFixedValues,
             UCHAR header_size = (origTcpHeader[12] >> 4) * 4;
             if (dataSize != 0)
                 DbgPrint("FIREWALL: Data: %c", *(BYTE*)(origTcpHeader + header_size));
-
 
 
             // TCP header size should be aligned in the 32-bit words
@@ -479,9 +479,16 @@ static void ProcessTransportData(const FWPS_INCOMING_VALUES0* inFixedValues,
             if (!NT_SUCCESS(status))
             {
                 DbgPrint("FIREWALL: InsertUpdatedTcpPacket failed with %x", status);
-                FreeNetworkBufferListStorage(netBufferListStorage);
-                netBufferListStorage = nullptr;
             }
+
+            // Free data
+            if (sendParams) {
+                ExFreePoolWithTag(sendParams, SEND_PARAMETERS_TAG);
+            }
+            if (origTcpHeaderStorage) {
+                ExFreePoolWithTag(origTcpHeaderStorage, TCP_HEADER_STORAGE_TAG);
+            }
+
         } // ELSE IF UDP
         else {//if (inFixedValues->incomingValue[FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_PROTOCOL].value.uint8 == 17) {
             classifyOut->actionType = FWP_ACTION_PERMIT;
